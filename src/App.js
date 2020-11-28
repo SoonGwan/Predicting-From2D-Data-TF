@@ -89,6 +89,43 @@ const App = () => {
     });
   };
 
+  const testModel = (model, inputData, normalizationData) => {
+    const { inputMax, inputMin, labelMax, labelMin } = normalizationData;
+
+    const [xs, preds] = tf.tidy(() => {
+      const xs = tf.linspace(0, 1, 100);
+      const preds = model.predict(xs.reshape([100, 1]));
+      // 모델에 대한 100개의 새로운 예제를 생성하는 것 [num_examples, num_features_per_example]훈련을 할 때 와 비슷한 모양 ( ) 을 가져야합니다 .
+
+      const unNormXs = xs.mul(inputMax.sub(inputMin)).add(inputMin);
+      const unNormPreds = preds.mul(labelMax.sub(labelMin)).add(labelMin);
+
+      return [unNormXs.dataSync(), unNormPreds.dataSync()];
+      // .dataSync() typedarray 텐서에 저장된 값을 가져오는데 사용할 수 있는 방법
+    });
+
+    const predictedPoints = Array.from(xs).map((val, i) => {
+      return { x: val, y: preds[i] };
+    });
+    const originalPoints = inputData.map((d) => ({
+      x: d.horsepower,
+      y: d.mpg,
+    }));
+
+    tfvis.render.scatterplot(
+      { name: 'Model Predictions vs Original Data' },
+      {
+        values: [originalPoints, predictedPoints],
+        series: ['original', 'predicted'],
+      },
+      {
+        xLabel: 'Horsepower',
+        yLabel: 'MGH',
+        height: 300,
+      }
+    );
+  };
+
   const run = async () => {
     const model = createModel();
     tfvis.show.modelSummary({ name: 'Model Summary' }, model);
@@ -103,6 +140,7 @@ const App = () => {
     await trainModel(model, inputs, labels);
     console.log('The end Train');
 
+    testModel(model, data, tensorData);
     tfvis.render.scatterplot(
       { name: 'Horsepower v MPG' },
       { values },
