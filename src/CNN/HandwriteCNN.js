@@ -2,6 +2,7 @@ import React from 'react';
 import * as tf from '@tensorflow/tfjs';
 import * as tfvis from '@tensorflow/tfjs-vis';
 import { MnistData } from './data';
+// import { confusionMatrix } from '@tensorflow/tfjs-vis/dist/render/confusion_matrix';
 
 const HandWriteCNN = () => {
   const showExamples = async (data) => {
@@ -88,6 +89,7 @@ const HandWriteCNN = () => {
   };
 
   const train = async (model, data) => {
+    // 학습 세트의 손실과 정확도
     const metrics = ['loss', 'val_loss', 'acc', 'val_acc'];
     const container = {
       name: 'Model Training',
@@ -119,6 +121,60 @@ const HandWriteCNN = () => {
     });
   };
 
+  const classNames = [
+    'Zero',
+    'One',
+    'Two',
+    'Three',
+    'Four',
+    'Five',
+    'Six',
+    'Seven',
+    'Eight',
+    'Nine',
+  ];
+  const doPrediction = (model, data, testDataSize = 500) => {
+    // 500개의 이미지셋을 가져와서 그 숫자를 예측함
+    // 여기선 확률 임계 값을 사용하지 않음
+    // 상대적으로 가장 낮더라도 가장 높은 가치를 가짐
+    const IMAGE_WIDTH = 28;
+    const IMAGE_HEIGHT = 28;
+    const testData = data.nextTestBatch(testDataSize);
+    const testxs = testData.xs.reshape([
+      testDataSize,
+      IMAGE_WIDTH,
+      IMAGE_HEIGHT,
+      1,
+    ]);
+    const labels = testData.labels.argMax(-1);
+    // argMax = 가장 높은 확률 클래스의 인덱스를 제공 -> 가장 높은 확률을 찾아 예측을 사용하게 함
+    const preds = model.predict(testxs).argMax(-1);
+
+    testxs.dispose();
+    return [preds, labels];
+  };
+  const showAccuracy = async (model, data) => {
+    // 예측 및 레이블을 사용하여 각 클래스의 정확도를 계산할 수 있다.
+    const [preds, labels] = doPrediction(model, data);
+    const classAccuracy = await tfvis.metrics.perClassAccuracy(labels, preds);
+    const container = { name: 'Accuracy', tab: 'Evaluation ' };
+    tfvis.show.perClassAccuracy(container, classAccuracy, classNames);
+
+    labels.dispose();
+  };
+
+  const showConfusion = async (model, data) => {
+    // 특정 클래스 쌍에 대한 모델이 혼동되는지 확인 하기 위해 더욱 분포를 세분화 시키는 작업
+    const [preds, labels] = doPrediction(model, data);
+    const confusionMatrix = await tfvis.metrics.confusionMatrix(labels, preds);
+    const container = { name: 'Confusion Matrix', tab: 'Evaluation' };
+    tfvis.render.confusionMatrix(container, {
+      values: confusionMatrix,
+      tickLabels: classNames,
+    });
+
+    labels.dispose();
+  };
   const run = async () => {
     const data = new MnistData();
     await data.load();
@@ -129,14 +185,13 @@ const HandWriteCNN = () => {
       model
     );
     await train(model, data);
+    // convolutional 신경망
+    await showAccuracy(model, data);
+    await showConfusion(model, data);
   };
 
   run();
-  return (
-    <>
-      <div></div>
-    </>
-  );
+  return <div />;
 };
 
 export default HandWriteCNN;
