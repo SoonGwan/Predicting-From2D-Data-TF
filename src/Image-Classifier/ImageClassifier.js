@@ -6,15 +6,30 @@ import * as tf from '@tensorflow/tfjs';
 
 const ImageClassifier = () => {
   let net;
+  const webcamElement = document.getElementById('webcam');
+
   const app = async () => {
     console.log('Loading mobilenet..');
 
     net = await mobilenet.load();
     console.log('Successfully loaded model');
 
-    const imgEl = document.getElementById('img');
-    const result = await net.classify(imgEl);
-    console.log(result);
+    const webcam = await tf.data.webcam(webcamElement, {
+      resizeWidth: 224,
+      resizeHeight: 224,
+    });
+    while (true) {
+      const img = await webcam.capture();
+      const result = await net.classify(img);
+
+      document.getElementById(
+        'console'
+      ).innerHTML = `prediction : ${result[0].className} \n probability: ${result[0].probability}
+      `;
+      img.dispose();
+
+      await tf.nextFrame();
+    }
   };
 
   app();
@@ -23,13 +38,7 @@ const ImageClassifier = () => {
     <div>
       <div id="console"></div>
       {/* <!-- Add an image that we will use to test --> */}
-      <img
-        id="img"
-        crossOrigin="anonymous"
-        src="https://i.imgur.com/JlUvsxa.jpg"
-        width="227"
-        height="227"
-      />
+      <video autoplay playsinline muted id="webcam" width="224" height="224" />
     </div>
   );
 };
